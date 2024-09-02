@@ -37,19 +37,6 @@ export async function run() {
   await sequelize.sync({ force: true });
   expect(spy).to.have.been.called;
   const created = await Foo.create({ name: 'TS roo', categories: ["Kruzya", "Isn't", "Gay!"] });
-  // ! FAILED
-  try {
-    const founded = await Foo.findOne({
-      where: {
-        categories: {
-          [Op.contains]: ["Kruzya"]
-        }
-      }
-    })
-    expect(founded).not.null("Foo") // never
-  } catch (error) {
-    console.error("error on Op.contains", error)
-  }
 
   // ? WORK
   const founded = await Foo.findOne({
@@ -57,5 +44,17 @@ export async function run() {
   })
 
   console.log("JSON_CONTAINS", founded)
+
+  // ! FAILED
+  const founded2 = await Foo.findOne({
+    where: {
+      categories: {
+        [Op.contains]: ["Kruzya"]
+      }
+    }
+  })
+
+  expect(founded2).not.null("Foo") // never
+
   expect(await Foo.count()).to.equal(1);
 }
