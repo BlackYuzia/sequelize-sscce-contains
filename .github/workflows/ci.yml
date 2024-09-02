@@ -1,0 +1,73 @@
+name: CI
+on:
+  pull_request:
+
+# This configuration cancels previous runs if a new run is started on the same PR. Only one run at a time per PR.
+# from https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test-sqlite:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [10, 18, 20]
+    name: sqlite (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    env:
+      DIALECT: sqlite
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: yarn
+      - run: /bin/bash ./dev/prepare-ci.sh
+      - name: Execute SSCCE
+        run: yarn run _test
+  test-postgres:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [10, 18, 20]
+        postgres-version: [oldest, latest]
+        minify-aliases: [true, false]
+        native: [true, false]
+    name: postgres ${{ matrix.postgres-version }}${{ matrix.native && ' (native)' || '' }} (Node ${{ matrix.node-version }})${{ matrix.minify-aliases && ' (minified aliases)' || '' }}
+    runs-on: ubuntu-latest
+    env:
+      DIALECT: ${{ matrix.native && 'postgres-native' || 'postgres' }}
+      SEQ_PG_MINIFY_ALIASES: ${{ matrix.minify-aliases && '1' || '' }}
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: yarn
+      - run: /bin/bash ./dev/prepare-ci.sh
+      - run: yarn start-postgres-${{ matrix.postgres-version }}
+      - name: Execute SSCCE
+        run: yarn run _test
+  test-oldest-latest:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [10, 18, 20]
+        database-version: [oldest, latest]
+        dialect: [mysql, mariadb, mssql]
+    name: ${{ matrix.dialect }} ${{ matrix.database-version }} (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    env:
+      DIALECT: ${{ matrix.dialect }}
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: yarn
+      - run: /bin/bash ./dev/prepare-ci.sh
+      - run: yarn start-${{ matrix.dialect }}-${{ matrix.database-version }}
+      - name: Execute SSCCE
+        run: yarn run _test
